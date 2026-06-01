@@ -166,4 +166,20 @@ def registrar_resultado(partido_id: int, data: schemas.ResultadoCreate, token: s
 
 # ── PREDICCIONES ──────────────────────────────────────
 @app.post("/partidos/{partido_id}/predicciones")
-def hacer_prediccion(partido_id: int, data: schemas.PrediccionCreate, token: str, db: Session = De
+def hacer_prediccion(partido_id: int, data: schemas.PrediccionCreate, token: str, db: Session = Depends(get_db)):
+    usuario = get_usuario_actual(token, db)
+    partido = db.query(models.Partido).filter_by(id=partido_id).first()
+    if not partido or partido.finalizado:
+        raise HTTPException(status_code=400, detail="Partido no disponible")
+    ya = db.query(models.Prediccion).filter_by(usuario_id=usuario.id, partido_id=partido_id).first()
+    if ya:
+        raise HTTPException(status_code=400, detail="Ya predijiste este partido")
+    pred = models.Prediccion(
+        usuario_id=usuario.id,
+        partido_id=partido_id,
+        goles_local=data.goles_local,
+        goles_visitante=data.goles_visitante
+    )
+    db.add(pred)
+    db.commit()
+    return {"mensaje": "Predicción registrada"}
