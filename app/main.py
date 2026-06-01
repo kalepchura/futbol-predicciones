@@ -1,9 +1,10 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime
 from jose import jwt
 from passlib.context import CryptContext
-import random, string
+import random, string, os
 
 from app.database import engine, get_db, Base
 from app import models, schemas
@@ -12,6 +13,11 @@ from app.scoring import calcular_puntos, calcular_bonus_racha
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Futbol Predicciones")
+
+# Montar estáticos (frontend)
+static_path = os.path.join(os.path.dirname(__file__), "static")
+if os.path.isdir(static_path):
+    app.mount("/static", StaticFiles(directory=static_path), name="static")
 
 SECRET_KEY = "clave_secreta_lab"
 ALGORITHM = "HS256"
@@ -90,21 +96,40 @@ def unirse_sala(data: schemas.SalaUnirse, token: str, db: Session = Depends(get_
 
 @app.get("/salas/{sala_id}/ranking")
 def ranking(sala_id: int, db: Session = Depends(get_db)):
+    sala = db.query(models.Sala).filter_by(id=sala_id).first()
+    if not sala:
+        raise HTTPException(status_code=404, detail="Sala no encontrada")
     miembros = db.query(models.SalaUsuario).filter_by(sala_id=sala_id).all()
-    resultado = []
-    for m in miembros:
-        resultado.append({
-            "usuario": m.usuario.nombre,
-            "puntos": m.puntos_total
-        })
+    resultado = [{"usuario": m.usuario.nombre, "puntos": m.puntos_total} for m in miembros]
     return sorted(resultado, key=lambda x: x["puntos"], reverse=True)
+
+@app.get("/salas/{sala_id}/partidos")
+def listar_partidos(sala_id: int, db: Session = Depends(get_db)):
+    sala = db.query(models.Sala).filter_by(id=sala_id).first()
+    if not sala:
+        raise HTTPException(status_code=404, detail="Sala no encontrada")
+    partidos = db.query(models.Partido).filter_by(sala_id=sala_id).all()
+    return [
+        {
+            "id": p.id,
+            "equipo_local": p.equipo_local,
+            "equipo_visitante": p.equipo_visitante,
+            "fecha_partido": p.fecha_partido,
+            "goles_local": p.goles_local,
+            "goles_visitante": p.goles_visitante,
+            "finalizado": p.finalizado,
+        }
+        for p in partidos
+    ]
 
 # ── PARTIDOS ──────────────────────────────────────────
 @app.post("/salas/{sala_id}/partidos")
 def crear_partido(sala_id: int, data: schemas.PartidoCreate, token: str, db: Session = Depends(get_db)):
     usuario = get_usuario_actual(token, db)
     sala = db.query(models.Sala).filter_by(id=sala_id).first()
-    if not sala or sala.creador_id != usuario.id:
+    if not sala:
+        raise HTTPException(status_code=404, detail="Sala no encontrada")
+    if sala.creador_id != usuario.id:
         raise HTTPException(status_code=403, detail="Solo el creador puede agregar partidos")
     partido = models.Partido(
         sala_id=sala_id,
@@ -119,14 +144,21 @@ def crear_partido(sala_id: int, data: schemas.PartidoCreate, token: str, db: Ses
 
 @app.post("/partidos/{partido_id}/resultado")
 def registrar_resultado(partido_id: int, data: schemas.ResultadoCreate, token: str, db: Session = Depends(get_db)):
+    usuario = get_usuario_actual(token, db)
     partido = db.query(models.Partido).filter_by(id=partido_id).first()
     if not partido:
         raise HTTPException(status_code=404, detail="Partido no encontrado")
+
+    # Solo el creador de la sala puede registrar resultado
+    sala = db.query(models.Sala).filter_by(id=partido.sala_id).first()
+    if sala.creador_id != usuario.id:
+        raise HTTPException(status_code=403, detail="Solo el creador puede registrar resultados")
+
     partido.goles_local = data.goles_local
     partido.goles_visitante = data.goles_visitante
     partido.finalizado = True
 
-    # Calcular puntos para cada predicción
+    # Calcular puntos base para cada predicción (R1, R2, R3, R5)
     predicciones = db.query(models.Prediccion).filter_by(partido_id=partido_id).all()
     for pred in predicciones:
         pred.puntos = calcular_puntos(
@@ -134,32 +166,34 @@ def registrar_resultado(partido_id: int, data: schemas.ResultadoCreate, token: s
             data.goles_local, data.goles_visitante,
             pred.fecha_prediccion, partido.fecha_partido
         )
-        # Actualizar puntos en sala
-        sala_usuario = db.query(models.SalaUsuario).filter_by(
-            sala_id=partido.sala_id, usuario_id=pred.usuario_id
-        ).first()
-        if sala_usuario:
-            sala_usuario.puntos_total += pred.puntos
-
     db.commit()
 
-    # Bonus racha por usuario en la sala
-    for pred in predicciones:
-        todas = db.query(models.Prediccion).join(models.Partido).filter(
-            models.Partido.sala_id == partido.sala_id,
-            models.Prediccion.usuario_id == pred.usuario_id,
-            models.Partido.finalizado == True
-        ).order_by(models.Prediccion.fecha_prediccion).all()
-
-        historial = [(p.goles_local, p.goles_visitante,
-                      p.partido.goles_local, p.partido.goles_visitante) for p in todas]
+    # Recalcular puntos totales de cada usuario en la sala (incluyendo bonus racha R4)
+    usuarios_en_partido = {p.usuario_id for p in predicciones}
+    for usuario_id in usuarios_en_partido:
+        todas = (
+            db.query(models.Prediccion)
+            .join(models.Partido)
+            .filter(
+                models.Partido.sala_id == partido.sala_id,
+                models.Prediccion.usuario_id == usuario_id,
+                models.Partido.finalizado == True
+            )
+            .order_by(models.Partido.fecha_partido)
+            .all()
+        )
+        historial = [
+            (p.goles_local, p.goles_visitante, p.partido.goles_local, p.partido.goles_visitante)
+            for p in todas
+        ]
         bonus = calcular_bonus_racha(historial)
+        puntos_base = sum(p.puntos for p in todas)
 
         sala_usuario = db.query(models.SalaUsuario).filter_by(
-            sala_id=partido.sala_id, usuario_id=pred.usuario_id
+            sala_id=partido.sala_id, usuario_id=usuario_id
         ).first()
         if sala_usuario:
-            sala_usuario.puntos_total = sum(p.puntos for p in todas) + bonus
+            sala_usuario.puntos_total = puntos_base + bonus
 
     db.commit()
     return {"mensaje": "Resultado registrado y puntos calculados"}
@@ -169,8 +203,10 @@ def registrar_resultado(partido_id: int, data: schemas.ResultadoCreate, token: s
 def hacer_prediccion(partido_id: int, data: schemas.PrediccionCreate, token: str, db: Session = Depends(get_db)):
     usuario = get_usuario_actual(token, db)
     partido = db.query(models.Partido).filter_by(id=partido_id).first()
-    if not partido or partido.finalizado:
-        raise HTTPException(status_code=400, detail="Partido no disponible")
+    if not partido:
+        raise HTTPException(status_code=404, detail="Partido no encontrado")
+    if partido.finalizado:
+        raise HTTPException(status_code=400, detail="Partido ya finalizado")
     ya = db.query(models.Prediccion).filter_by(usuario_id=usuario.id, partido_id=partido_id).first()
     if ya:
         raise HTTPException(status_code=400, detail="Ya predijiste este partido")
