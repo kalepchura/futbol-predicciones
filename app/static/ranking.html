@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PrediGol — Ranking</title>
+  <style>
+    :root {
+      --green:       #00D45E;
+      --green-dark:  #00993F;
+      --gold:        #FFD700;
+      --silver:      #B8C4D4;
+      --bronze:      #CD7F32;
+      --bg:          #080D18;
+      --card:        #0D1426;
+      --card-border: rgba(255,255,255,0.07);
+      --text:        #ECF4FF;
+      --muted:       #7A90B8;
+      --error:       #FF4060;
+      --serif:       Georgia, 'Times New Roman', serif;
+      --mono:        'Courier New', Courier, monospace;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; }
+
+    body {
+      min-height: 100vh;
+      background-color: var(--bg);
+      font-family: var(--serif);
+      color: var(--text);
+    }
+
+    /* Pitch grid */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        repeating-linear-gradient(0deg,  transparent, transparent 99px, rgba(0,212,94,0.03) 99px, rgba(0,212,94,0.03) 100px),
+        repeating-linear-gradient(90deg, transparent, transparent 99px, rgba(0,212,94,0.02) 99px, rgba(0,212,94,0.02) 100px);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* Floodlights */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 55% 45% at 3%  3%,  rgba(0,212,94,0.07)  0%, transparent 60%),
+        radial-gradient(ellipse 55% 45% at 97% 3%,  rgba(255,215,0,0.05) 0%, transparent 60%);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ===== HEADER ===== */
+    .site-header {
+      position: sticky; top: 0; z-index: 10;
+      background: rgba(8,13,24,0.93);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .header-inner {
+      max-width: 900px; margin: 0 auto;
+      padding: 0 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 60px; gap: 16px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; flex-shrink: 0; }
+
+    .brand-ball {
+      width: 28px; height: 28px;
+      animation: spinBall 10s linear infinite;
+      filter: drop-shadow(0 0 6px rgba(0,212,94,0.5));
+    }
+
+    @keyframes spinBall { to { transform: rotate(360deg); } }
+
+    .brand-name { font-size: 20px; font-weight: bold; color: var(--text); letter-spacing: -0.5px; }
+    .brand-name em { font-style: normal; color: var(--green); }
+
+    .header-right { display: flex; align-items: center; gap: 14px; }
+
+    .user-label {
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: 1.5px; color: var(--muted); white-space: nowrap;
+    }
+    .user-label strong { color: var(--gold); font-weight: bold; letter-spacing: 2px; }
+
+    .logout-btn {
+      background: none;
+      border: 1px solid rgba(255,64,96,0.3);
+      color: rgba(255,64,96,0.65);
+      font-family: var(--mono); font-size: 9px;
+      letter-spacing: 2px; text-transform: uppercase;
+      padding: 6px 12px; border-radius: 2px; cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+    }
+    .logout-btn:hover {
+      background: rgba(255,64,96,0.1);
+      border-color: rgba(255,64,96,0.55);
+      color: rgba(255,64,96,1);
+    }
+
+    /* ===== PAGE ===== */
+    .page {
+      position: relative; z-index: 1;
+      max-width: 900px; margin: 0 auto;
+      padding: 40px 20px 64px;
+    }
+
+    /* Page heading */
+    .page-hd {
+      margin-bottom: 32px;
+      animation: fadeDown 0.6s cubic-bezier(0.22,1,0.36,1) both;
+    }
+
+    .page-hd-top {
+      display: flex; align-items: flex-start;
+      justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    }
+
+    .page-hd h2 { font-size: 26px; font-weight: bold; letter-spacing: -0.5px; }
+
+    .sala-sub {
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: 2.5px; text-transform: uppercase;
+      color: var(--gold); margin-top: 5px;
+    }
+
+    .nav-btn {
+      font-family: var(--mono); font-size: 9px; font-weight: bold;
+      letter-spacing: 2px; text-transform: uppercase;
+      padding: 8px 14px; border-radius: 2px;
+      text-decoration: none; border: 1px solid; cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+      white-space: nowrap; background: none;
+      color: var(--muted); border-color: var(--card-border);
+      background: rgba(255,255,255,0.03);
+    }
+    .nav-btn:hover {
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.15); color: var(--text);
+    }
+
+    /* ===== SECTION HEADER (title + refresh) ===== */
+    .section-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px; flex-wrap: wrap; gap: 10px;
+      animation: fadeDown 0.6s cubic-bezier(0.22,1,0.36,1) 0.05s both;
+    }
+
+    .section-left { display: flex; align-items: center; gap: 10px; }
+
+    .s-icon {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: rgba(255,215,0,0.1);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+
+    .s-title {
+      font-family: var(--mono); font-size: 10px; font-weight: bold;
+      letter-spacing: 2.5px; text-transform: uppercase; color: var(--gold);
+    }
+
+    .section-right { display: flex; align-items: center; gap: 14px; }
+
+    .timestamp {
+      font-family: var(--mono); font-size: 9px; letter-spacing: 1px;
+      color: var(--muted); opacity: 0.6;
+    }
+
+    .refresh-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(255,215,0,0.08);
+      border: 1px solid rgba(255,215,0,0.22);
+      color: var(--gold);
+      font-family: var(--mono); font-size: 9px; font-weight: bold;
+      letter-spacing: 2px; text-transform: uppercase;
+      padding: 8px 14px; border-radius: 2px; cursor: pointer;
+      position: relative; overflow: hidden;
+      transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+    .refresh-btn:hover {
+      background: rgba(255,215,0,0.15);
+      border-color: rgba(255,215,0,0.4);
+      box-shadow: 0 4px 12px rgba(255,215,0,0.15);
+    }
+    .refresh-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .refresh-btn .spin-icon { display: inline-block; }
+    .refresh-btn.loading .spin-icon { animation: spinIcon 0.6s linear infinite; }
+
+    @keyframes spinIcon { to { transform: rotate(360deg); } }
+
+    /* ===== RANKING CARD ===== */
+    .ranking-card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 3px; overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(255,215,0,0.05),
+        0 16px 48px rgba(0,0,0,0.55);
+      animation: fadeUp 0.6s cubic-bezier(0.22,1,0.36,1) 0.1s both;
+    }
+
+    .card-stripe-gold {
+      height: 3px;
+      background: linear-gradient(90deg, transparent, rgba(255,215,0,0.5), var(--gold), rgba(255,215,0,0.5), transparent);
+    }
+
+    /* ===== TABLE ===== */
+    .ranking-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .ranking-table thead tr {
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .ranking-table th {
+      font-family: var(--mono); font-size: 9px; font-weight: bold;
+      letter-spacing: 2.5px; text-transform: uppercase;
+      color: var(--muted); padding: 14px 24px; text-align: left;
+    }
+
+    .ranking-table th.th-pos  { text-align: center; width: 80px; }
+    .ranking-table th.th-pts  { text-align: right; }
+
+    /* Rows */
+    .r-row {
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      transition: background 0.15s;
+    }
+    .r-row:last-child { border-bottom: none; }
+    .r-row:hover      { background: rgba(255,255,255,0.02); }
+
+    /* Top 3 tints */
+    .r-row.rank-1 { background: rgba(255,215,0,0.05); }
+    .r-row.rank-2 { background: rgba(184,196,212,0.04); }
+    .r-row.rank-3 { background: rgba(205,127,50,0.04); }
+
+    /* Current user highlight — overrides rank tint */
+    .r-row.is-me {
+      background: rgba(0,212,94,0.07) !important;
+      border-left: 3px solid var(--green);
+    }
+
+    /* Position cell */
+    .td-pos {
+      padding: 20px 24px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .medal-icon { font-size: 20px; }
+
+    .pos-num {
+      font-family: var(--mono); font-size: 15px;
+      color: var(--muted); display: inline-block; min-width: 24px;
+    }
+    .rank-1 .pos-num { color: var(--gold); font-weight: bold; }
+    .rank-2 .pos-num { color: var(--silver); }
+    .rank-3 .pos-num { color: var(--bronze); }
+
+    /* Username cell */
+    .td-user {
+      padding: 20px 24px;
+      font-size: 17px; color: var(--text);
+    }
+
+    .rank-1 .td-user { font-weight: bold; }
+
+    .you-badge {
+      display: inline-block;
+      font-family: var(--mono); font-size: 8px;
+      letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--green);
+      background: rgba(0,212,94,0.1);
+      border: 1px solid rgba(0,212,94,0.25);
+      padding: 2px 7px; border-radius: 2px;
+      margin-left: 10px; vertical-align: middle;
+    }
+
+    /* Points cell */
+    .td-pts {
+      padding: 20px 24px;
+      text-align: right;
+      font-family: var(--mono); font-size: 24px; font-weight: bold;
+      color: var(--text);
+    }
+    .rank-1 .td-pts { color: var(--gold); text-shadow: 0 0 18px rgba(255,215,0,0.3); }
+    .rank-2 .td-pts { color: var(--silver); }
+    .rank-3 .td-pts { color: var(--bronze); }
+    .is-me  .td-pts { color: var(--green); }
+
+    .pts-label {
+      display: block;
+      font-size: 8px; letter-spacing: 1px; text-transform: uppercase;
+      color: var(--muted); opacity: 0.55; margin-top: 2px; font-weight: normal;
+    }
+
+    /* ===== STATES ===== */
+    .state-block { display: none; }
+    .state-block.on { display: block; animation: fadeIn 0.3s ease both; }
+
+    .loading-state { text-align: center; padding: 56px 20px; }
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid rgba(255,215,0,0.12); border-top-color: var(--gold);
+      border-radius: 50%; margin: 0 auto 16px;
+      animation: spinIcon 0.7s linear infinite;
+    }
+    .loading-state p { font-family: var(--mono); font-size: 10px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+
+    .error-state  { text-align: center; padding: 48px 20px; font-family: var(--mono); font-size: 12px; color: var(--error); }
+
+    .empty-state  { text-align: center; padding: 56px 20px; }
+    .empty-state .ei  { font-size: 40px; opacity: 0.18; margin-bottom: 16px; }
+    .empty-state p { font-family: var(--mono); font-size: 11px; letter-spacing: 1.5px; color: var(--muted); opacity: 0.5; line-height: 1.8; }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 580px) {
+      .header-inner  { padding: 0 16px; }
+      .user-label    { display: none; }
+      .page          { padding: 28px 14px 56px; }
+      .page-hd-top   { flex-direction: column; }
+      .section-bar   { flex-direction: column; align-items: flex-start; }
+      .td-pos        { padding: 16px 14px; }
+      .td-user       { padding: 16px 14px; font-size: 15px; }
+      .td-pts        { padding: 16px 14px; font-size: 20px; }
+      .ranking-table th { padding: 12px 14px; }
+    }
+
+    /* ===== ENTRY ANIMATIONS ===== */
+    @keyframes fadeDown { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeUp   { from{opacity:0;transform:translateY(16px)}  to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeIn   { from{opacity:0;transform:translateY(5px)}   to{opacity:1;transform:translateY(0)} }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="/" class="brand" aria-label="PrediGol — inicio">
+        <svg class="brand-ball" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <radialGradient id="bG" cx="38%" cy="35%" r="65%">
+              <stop offset="0%"   stop-color="#12291a"/>
+              <stop offset="100%" stop-color="#060d0a"/>
+            </radialGradient>
+          </defs>
+          <circle cx="50" cy="50" r="47" fill="url(#bG)" stroke="#00D45E" stroke-width="3"/>
+          <polygon points="50,31 64,41 59,57 41,57 36,41" fill="#00D45E" stroke="#031409" stroke-width="2"/>
+          <path d="M50,31 C50,22 50,12 50,4"  stroke="#00D45E" stroke-width="1.5" fill="none" opacity="0.5"/>
+          <path d="M64,41 C72,36 80,30 88,24" stroke="#00D45E" stroke-width="1.5" fill="none" opacity="0.5"/>
+          <path d="M59,57 C65,66 72,75 78,84" stroke="#00D45E" stroke-width="1.5" fill="none" opacity="0.5"/>
+          <path d="M41,57 C35,66 28,75 22,84" stroke="#00D45E" stroke-width="1.5" fill="none" opacity="0.5"/>
+          <path d="M36,41 C28,36 20,30 12,24" stroke="#00D45E" stroke-width="1.5" fill="none" opacity="0.5"/>
+        </svg>
+        <span class="brand-name">Predi<em>Gol</em></span>
+      </a>
+      <div class="header-right">
+        <span class="user-label">Hola, <strong id="username">...</strong></span>
+        <button class="logout-btn" onclick="logout()">Salir</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="page">
+
+    <!-- Page heading + back button -->
+    <div class="page-hd">
+      <div class="page-hd-top">
+        <div>
+          <h2>Ranking</h2>
+          <p class="sala-sub" id="sala-name-display">&hellip;</p>
+        </div>
+        <a class="nav-btn" id="back-link" href="/static/salas.html">&larr; Volver a partidos</a>
+      </div>
+    </div>
+
+    <!-- Section bar: title + refresh -->
+    <div class="section-bar">
+      <div class="section-left">
+        <div class="s-icon" aria-hidden="true">
+          <!-- Trophy icon -->
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path d="M4 1h6v5a3 3 0 01-6 0V1z" stroke="#FFD700" stroke-width="1.5" stroke-linejoin="round"/>
+            <path d="M1 2h3M10 2h3M7 9v3M5 13h4" stroke="#FFD700" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="s-title">Tabla de posiciones</span>
+      </div>
+
+      <div class="section-right">
+        <span class="timestamp" id="timestamp"></span>
+        <button class="refresh-btn" id="refresh-btn" onclick="refreshRanking()">
+          <span class="spin-icon">&#8635;</span>
+          Actualizar
+        </button>
+      </div>
+    </div>
+
+    <!-- Ranking card -->
+    <div class="ranking-card">
+      <div class="card-stripe-gold"></div>
+
+      <!-- Loading -->
+      <div class="state-block loading-state on" id="state-loading">
+        <div class="spinner"></div>
+        <p>Cargando ranking&hellip;</p>
+      </div>
+
+      <!-- Error -->
+      <div class="state-block error-state" id="state-error"></div>
+
+      <!-- Empty -->
+      <div class="state-block empty-state" id="state-empty">
+        <div class="ei">🏆</div>
+        <p>Aún no hay participantes en esta sala.<br>Únete y realiza predicciones para aparecer.</p>
+      </div>
+
+      <!-- Table -->
+      <div class="state-block" id="state-table">
+        <table class="ranking-table" aria-label="Tabla de posiciones">
+          <thead>
+            <tr>
+              <th class="th-pos">#</th>
+              <th>Jugador</th>
+              <th class="th-pts">Puntos</th>
+            </tr>
+          </thead>
+          <tbody id="ranking-tbody"></tbody>
+        </table>
+      </div>
+
+    </div>
+
+  </main>
+
+  <script>
+    // ===== AUTH + URL PARAMS =====
+    var token = localStorage.getItem('access_token');
+    if (!token) { location.href = '/'; }
+
+    var params     = new URLSearchParams(location.search);
+    var salaId     = params.get('sala_id');
+    var salaNombre = params.get('sala_nombre')
+      ? decodeURIComponent(params.get('sala_nombre'))
+      : 'Sala';
+
+    if (!salaId) { location.href = '/static/salas.html'; }
+
+    function decodeUsername(jwt) {
+      try { return JSON.parse(atob(jwt.split('.')[1])).sub || 'Usuario'; }
+      catch (_) { return 'Usuario'; }
+    }
+
+    var currentUser = decodeUsername(token);
+
+    document.getElementById('username').textContent          = currentUser;
+    document.getElementById('sala-name-display').textContent = salaNombre.toUpperCase();
+
+    // Back to partidos link
+    document.getElementById('back-link').href =
+      '/static/partidos.html?sala_id=' + salaId +
+      '&sala_nombre=' + encodeURIComponent(salaNombre);
+
+    // ===== LOGOUT =====
+    function logout() {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('salas_usuario');
+      location.href = '/';
+    }
+
+    // ===== STATE MANAGER =====
+    function setState(state, msg) {
+      ['loading', 'error', 'empty', 'table'].forEach(function (s) {
+        document.getElementById('state-' + s).classList.toggle('on', s === state);
+      });
+      if (state === 'error' && msg) {
+        document.getElementById('state-error').textContent = msg;
+      }
+    }
+
+    // ===== TIMESTAMP =====
+    function updateTimestamp() {
+      var now  = new Date();
+      var time = now.toLocaleTimeString('es-ES', {
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      });
+      document.getElementById('timestamp').textContent = 'Actualizado: ' + time;
+    }
+
+    // ===== LOAD RANKING (initial — full loading state) =====
+    async function loadRanking() {
+      setState('loading');
+      try {
+        var res = await fetch('/salas/' + salaId + '/ranking');
+        if (res.status === 404) { setState('error', 'Sala no encontrada.'); return; }
+        if (!res.ok)             { setState('error', 'Error al cargar el ranking.'); return; }
+        renderRanking(await res.json());
+        updateTimestamp();
+      } catch (_) {
+        setState('error', 'No se pudo conectar con el servidor.');
+      }
+    }
+
+    // ===== REFRESH (keep table visible while re-fetching) =====
+    async function refreshRanking() {
+      var btn = document.getElementById('refresh-btn');
+      btn.disabled = true;
+      btn.classList.add('loading');
+
+      try {
+        var res = await fetch('/salas/' + salaId + '/ranking');
+        if (!res.ok) { return; }
+        renderRanking(await res.json());
+        updateTimestamp();
+      } catch (_) {
+        // silent — table stays as-is
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove('loading');
+      }
+    }
+
+    // ===== RENDER RANKING =====
+    function renderRanking(data) {
+      if (data.length === 0) { setState('empty'); return; }
+      setState('table');
+
+      var rows = '';
+      var lastPts   = null;
+      var lastPos   = 0;
+      var displayPos = 0;
+
+      for (var i = 0; i < data.length; i++) {
+        var entry = data[i];
+        displayPos++;
+
+        // Handle ties — same points = same position
+        if (entry.puntos === lastPts) {
+          // same position as previous
+        } else {
+          lastPos = displayPos;
+          lastPts = entry.puntos;
+        }
+
+        var pos   = lastPos;
+        var isMe  = entry.usuario === currentUser;
+        var medal = pos === 1 ? '🏆' : pos === 2 ? '🥈' : pos === 3 ? '🥉' : '';
+
+        var rowClass = 'r-row';
+        if (pos <= 3) rowClass += ' rank-' + pos;
+        if (isMe)     rowClass += ' is-me';
+
+        var posCell = medal
+          ? '<span class="medal-icon">' + medal + '</span>'
+          : '<span class="pos-num">' + pos + '</span>';
+
+        var nameCell = esc(entry.usuario) +
+          (isMe ? '<span class="you-badge">T&uacute;</span>' : '');
+
+        rows +=
+          '<tr class="' + rowClass + '">' +
+          '  <td class="td-pos">' + posCell + '</td>' +
+          '  <td class="td-user">' + nameCell + '</td>' +
+          '  <td class="td-pts">' + entry.puntos +
+          '    <span class="pts-label">pts</span>' +
+          '  </td>' +
+          '</tr>';
+      }
+
+      document.getElementById('ranking-tbody').innerHTML = rows;
+    }
+
+    // ===== ESCAPE HELPER =====
+    function esc(s) {
+      return String(s || '')
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    // ===== BOOT =====
+    loadRanking();
+  </script>
+</body>
+</html>
