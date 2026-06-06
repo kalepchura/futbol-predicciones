@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PrediGol — Mundial 2026</title>
+  <style>
+    :root {
+      --green:       #00D45E;
+      --green-dark:  #00993F;
+      --gold:        #FFD700;
+      --bg:          #080D18;
+      --card:        #0D1426;
+      --card-border: rgba(255,255,255,0.07);
+      --text:        #ECF4FF;
+      --muted:       #7A90B8;
+      --error:       #FF4060;
+      --serif:       Georgia, 'Times New Roman', serif;
+      --mono:        'Courier New', Courier, monospace;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body { height: 100%; }
+
+    body {
+      min-height: 100vh;
+      background-color: var(--bg);
+      font-family: var(--serif);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Pitch grid */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        repeating-linear-gradient(0deg,  transparent, transparent 99px, rgba(0,212,94,0.03) 99px, rgba(0,212,94,0.03) 100px),
+        repeating-linear-gradient(90deg, transparent, transparent 99px, rgba(0,212,94,0.02) 99px, rgba(0,212,94,0.02) 100px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Floodlight radials */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 55% 45% at 3%  3%,  rgba(0,212,94,0.08)  0%, transparent 60%),
+        radial-gradient(ellipse 55% 45% at 97% 3%,  rgba(255,215,0,0.05) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 25% at 50% 0%,  rgba(0,180,80,0.04)  0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Floating particles */
+    #particles {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    .p {
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0;
+      animation: rise linear infinite;
+    }
+
+    @keyframes rise {
+      0%   { transform: translateY(105vh) scale(1.2); opacity: 0; }
+      6%   { opacity: 1; }
+      94%  { opacity: 0.25; }
+      100% { transform: translateY(-8vh)  scale(0.5); opacity: 0; }
+    }
+
+    /* Layout */
+    .wrap {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 460px;
+      padding: 24px 16px 40px;
+    }
+
+    /* ===== HEADER ===== */
+    .hd {
+      text-align: center;
+      margin-bottom: 36px;
+      animation: fadeDown 0.7s cubic-bezier(0.22,1,0.36,1) both;
+    }
+
+    .hd-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: linear-gradient(135deg, rgba(255,215,0,0.12), rgba(255,140,0,0.08));
+      border: 1px solid rgba(255,215,0,0.22);
+      color: var(--gold);
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      border-radius: 2px;
+      margin-bottom: 22px;
+    }
+
+    .hd-badge::before,
+    .hd-badge::after { content: '★'; font-size: 7px; }
+
+    .hd-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      margin-bottom: 14px;
+    }
+
+    .ball-svg {
+      width: 54px;
+      height: 54px;
+      flex-shrink: 0;
+      animation: spinBall 10s linear infinite;
+      filter: drop-shadow(0 0 12px rgba(0,212,94,0.5));
+    }
+
+    @keyframes spinBall { to { transform: rotate(360deg); } }
+
+    .hd-title {
+      font-size: clamp(30px, 7vw, 46px);
+      font-weight: bold;
+      color: var(--text);
+      letter-spacing: -1.5px;
+      line-height: 0.9;
+      text-shadow: 0 0 50px rgba(0,212,94,0.22);
+    }
+
+    .hd-title em {
+      font-style: normal;
+      color: var(--green);
+    }
+
+    .hd-nations {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .nation {
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      color: var(--gold);
+      background: rgba(255,215,0,0.07);
+      border: 1px solid rgba(255,215,0,0.18);
+      padding: 3px 8px;
+    }
+
+    .nation-sep {
+      font-family: var(--mono);
+      font-size: 8px;
+      color: rgba(255,215,0,0.3);
+    }
+
+    .hd-sub {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 10px;
+    }
+
+    /* ===== CARD ===== */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 3px;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(0,212,94,0.07),
+        0 32px 72px rgba(0,0,0,0.7),
+        inset 0 1px 0 rgba(255,255,255,0.04);
+      animation: fadeUp 0.7s cubic-bezier(0.22,1,0.36,1) 0.1s both;
+    }
+
+    .card-top {
+      height: 3px;
+      background: linear-gradient(90deg,
+        transparent,
+        var(--green-dark),
+        var(--green),
+        var(--gold),
+        var(--green),
+        var(--green-dark),
+        transparent
+      );
+    }
+
+    /* ===== TABS ===== */
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .tab {
+      background: none;
+      border: none;
+      padding: 18px 12px;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: bold;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+      position: relative;
+      transition: color 0.25s;
+    }
+
+    .tab::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0; bottom: -1px;
+      height: 2px;
+      background: var(--green);
+      box-shadow: 0 0 8px rgba(0,212,94,0.7);
+      transform: scaleX(0);
+      transition: transform 0.3s cubic-bezier(0.22,1,0.36,1);
+    }
+
+    .tab.on         { color: var(--text); }
+    .tab.on::after  { transform: scaleX(1); }
+    .tab:not(.on):hover { color: rgba(236,244,255,0.55); }
+
+    /* ===== PANELS ===== */
+    .panel { display: none; padding: 36px 40px 40px; }
+
+    .panel.on {
+      display: block;
+      animation: slideIn 0.35s cubic-bezier(0.22,1,0.36,1) both;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===== FORM FIELDS ===== */
+    .field { margin-bottom: 28px; }
+
+    .field label {
+      display: block;
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: bold;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .field input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid rgba(255,255,255,0.1);
+      padding: 10px 2px;
+      font-family: var(--serif);
+      font-size: 18px;
+      color: var(--text);
+      outline: none;
+      caret-color: var(--green);
+      transition: border-color 0.25s;
+    }
+
+    .field input::placeholder {
+      color: rgba(236,244,255,0.1);
+      font-style: italic;
+      font-size: 15px;
+    }
+
+    .field input:focus { border-bottom-color: var(--green); }
+
+    /* ===== SUBMIT BUTTON ===== */
+    .btn {
+      width: 100%;
+      margin-top: 4px;
+      padding: 16px;
+      background: linear-gradient(135deg, var(--green), var(--green-dark));
+      border: none;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #021a09;
+      cursor: pointer;
+      border-radius: 2px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.18), transparent 55%);
+      opacity: 0;
+      transition: opacity 0.25s;
+    }
+
+    .btn:hover         { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,212,94,0.4); }
+    .btn:hover::before { opacity: 1; }
+    .btn:active        { transform: translateY(0);    box-shadow: 0 3px 10px rgba(0,212,94,0.2); }
+    .btn:disabled      { opacity: 0.4; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+
+    .btn.loading { color: transparent; }
+
+    .btn.loading::after {
+      content: '';
+      position: absolute;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(0,0,0,0.2);
+      border-top-color: #021a09;
+      border-radius: 50%;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      animation: loadSpin 0.55s linear infinite;
+    }
+
+    @keyframes loadSpin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+    /* ===== ERROR BOX ===== */
+    .err {
+      display: none;
+      margin-top: 16px;
+      padding: 11px 14px;
+      background: rgba(255,64,96,0.07);
+      border: 1px solid rgba(255,64,96,0.22);
+      border-left: 3px solid var(--error);
+      border-radius: 2px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--error);
+      line-height: 1.5;
+    }
+
+    .err.on {
+      display: block;
+      animation: shake 0.4s cubic-bezier(0.36,0.07,0.19,0.97) both;
+    }
+
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%     { transform: translateX(-6px); }
+      40%     { transform: translateX(6px); }
+      60%     { transform: translateX(-4px); }
+      80%     { transform: translateX(4px); }
+    }
+
+    /* ===== FOOTER ===== */
+    .ft {
+      text-align: center;
+      margin-top: 24px;
+      animation: fadeUp 0.7s cubic-bezier(0.22,1,0.36,1) 0.2s both;
+    }
+
+    .ft p {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: rgba(122,144,184,0.35);
+      text-transform: uppercase;
+    }
+
+    /* ===== ENTRY KEYFRAMES ===== */
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 500px) {
+      .panel { padding: 28px 24px 32px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="particles"></div>
+
+  <div class="wrap">
+
+    <!-- Header -->
+    <header class="hd">
+      <div class="hd-badge">FIFA World Cup 2026</div>
+
+      <div class="hd-logo">
+        <!-- Football SVG — inline, no external assets -->
+        <svg class="ball-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <radialGradient id="ballGrad" cx="38%" cy="35%" r="65%">
+              <stop offset="0%"   stop-color="#12291a"/>
+              <stop offset="100%" stop-color="#060d0a"/>
+            </radialGradient>
+          </defs>
+          <circle cx="50" cy="50" r="47" fill="url(#ballGrad)" stroke="#00D45E" stroke-width="2.5"/>
+          <!-- Center pentagon (vertex pointing up) -->
+          <polygon points="50,31 64,41 59,57 41,57 36,41"
+                   fill="#00D45E" stroke="#031409" stroke-width="1.5"/>
+          <!-- Seam lines from each vertex toward ball edge -->
+          <path d="M50,31 C50,22 50,12 50,4"   stroke="#00D45E" stroke-width="1.2" fill="none" opacity="0.55"/>
+          <path d="M64,41 C72,36 80,30 88,24"  stroke="#00D45E" stroke-width="1.2" fill="none" opacity="0.55"/>
+          <path d="M59,57 C65,66 72,75 78,84"  stroke="#00D45E" stroke-width="1.2" fill="none" opacity="0.55"/>
+          <path d="M41,57 C35,66 28,75 22,84"  stroke="#00D45E" stroke-width="1.2" fill="none" opacity="0.55"/>
+          <path d="M36,41 C28,36 20,30 12,24"  stroke="#00D45E" stroke-width="1.2" fill="none" opacity="0.55"/>
+          <!-- Specular highlight -->
+          <ellipse cx="37" cy="34" rx="7" ry="4.5" fill="rgba(255,255,255,0.09)" transform="rotate(-25,37,34)"/>
+        </svg>
+
+        <div>
+          <h1 class="hd-title">Predi<em>Gol</em></h1>
+        </div>
+      </div>
+
+      <div class="hd-nations">
+        <span class="nation">USA</span>
+        <span class="nation-sep">·</span>
+        <span class="nation">MEX</span>
+        <span class="nation-sep">·</span>
+        <span class="nation">CAN</span>
+      </div>
+      <p class="hd-sub">Predicciones del Mundial</p>
+    </header>
+
+    <!-- Card -->
+    <div class="card" role="main">
+      <div class="card-top" aria-hidden="true"></div>
+
+      <!-- Tab controls -->
+      <div class="tabs" role="tablist">
+        <button class="tab on" id="t-login" role="tab" aria-selected="true"  aria-controls="p-login" onclick="switchTab('login')">Iniciar Sesión</button>
+        <button class="tab"    id="t-reg"   role="tab" aria-selected="false" aria-controls="p-reg"   onclick="switchTab('reg')">Registrarse</button>
+      </div>
+
+      <!-- Login panel -->
+      <div class="panel on" id="p-login" role="tabpanel" aria-labelledby="t-login">
+        <form id="loginForm" onsubmit="doLogin(event)" novalidate>
+          <div class="field">
+            <label for="l-user">Nombre de usuario</label>
+            <input id="l-user" type="text" placeholder="Tu usuario"
+                   autocomplete="username" required/>
+          </div>
+          <div class="field">
+            <label for="l-pass">Contraseña</label>
+            <input id="l-pass" type="password" placeholder="••••••••"
+                   autocomplete="current-password" required/>
+          </div>
+          <button class="btn" type="submit" id="b-login">Entrar al Mundial</button>
+          <div class="err" id="e-login" role="alert" aria-live="assertive"></div>
+        </form>
+      </div>
+
+      <!-- Register panel -->
+      <div class="panel" id="p-reg" role="tabpanel" aria-labelledby="t-reg">
+        <form id="registerForm" onsubmit="doRegister(event)" novalidate>
+          <div class="field">
+            <label for="r-user">Elige tu nombre</label>
+            <input id="r-user" type="text" placeholder="Tu usuario"
+                   autocomplete="username" required/>
+          </div>
+          <div class="field">
+            <label for="r-pass">Contraseña</label>
+            <input id="r-pass" type="password" placeholder="••••••••"
+                   autocomplete="new-password" required/>
+          </div>
+          <button class="btn" type="submit" id="b-reg">Unirme al Torneo</button>
+          <div class="err" id="e-reg" role="alert" aria-live="assertive"></div>
+        </form>
+      </div>
+    </div>
+
+    <footer class="ft"><p>Mundial 2026 &mdash; USA &middot; M&eacute;xico &middot; Canad&aacute;</p></footer>
+  </div>
+
+  <script>
+    // Redirect immediately if already authenticated
+    if (localStorage.getItem('access_token')) {
+      location.href = '/static/salas.html';
+    }
+
+    // Spawn ambient particles
+    (function spawnParticles() {
+      const container = document.getElementById('particles');
+      const colors = ['#00D45E', '#FFD700', '#ECF4FF', '#00A348', '#FFD700'];
+      for (let i = 0; i < 22; i++) {
+        const el = document.createElement('div');
+        el.className = 'p';
+        const size = 1.5 + Math.random() * 3;
+        el.style.cssText = [
+          `width:${size}px`,
+          `height:${size}px`,
+          `left:${Math.random() * 100}%`,
+          `background:${colors[i % colors.length]}`,
+          `box-shadow:0 0 ${size * 2}px ${colors[i % colors.length]}`,
+          `animation-duration:${10 + Math.random() * 14}s`,
+          `animation-delay:${Math.random() * 12}s`,
+        ].join(';');
+        container.appendChild(el);
+      }
+    })();
+
+    // Tab switching
+    function switchTab(tab) {
+      const isLogin = tab === 'login';
+      document.getElementById('t-login').classList.toggle('on', isLogin);
+      document.getElementById('t-reg').classList.toggle('on', !isLogin);
+      document.getElementById('t-login').setAttribute('aria-selected', isLogin);
+      document.getElementById('t-reg').setAttribute('aria-selected', !isLogin);
+      document.getElementById('p-login').classList.toggle('on', isLogin);
+      document.getElementById('p-reg').classList.toggle('on', !isLogin);
+      clearErrors();
+    }
+
+    function clearErrors() {
+      ['e-login', 'e-reg'].forEach(function(id) {
+        var el = document.getElementById(id);
+        el.classList.remove('on');
+        el.textContent = '';
+      });
+    }
+
+    function showError(id, msg) {
+      var el = document.getElementById(id);
+      el.textContent = msg;
+      el.classList.remove('on');
+      void el.offsetWidth; // force reflow to restart shake animation
+      el.classList.add('on');
+    }
+
+    function setLoading(btnId, state) {
+      var btn = document.getElementById(btnId);
+      btn.disabled = state;
+      btn.classList.toggle('loading', state);
+    }
+
+    function saveAndRedirect(data) {
+      localStorage.setItem('access_token', data.access_token);
+      location.href = '/static/salas.html';
+    }
+
+    async function doLogin(event) {
+      event.preventDefault();
+      var nombre   = document.getElementById('l-user').value.trim();
+      var password = document.getElementById('l-pass').value;
+      setLoading('b-login', true);
+      clearErrors();
+      try {
+        var res = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nombre: nombre, password: password })
+        });
+        var data = await res.json();
+        if (res.ok) {
+          saveAndRedirect(data);
+        } else if (res.status === 400 || res.status === 401) {
+          showError('e-login', 'Credenciales incorrectas');
+        } else {
+          showError('e-login', 'Ocurrió un error. Inténtalo de nuevo.');
+        }
+      } catch (_) {
+        showError('e-login', 'No se pudo conectar con el servidor.');
+      } finally {
+        setLoading('b-login', false);
+      }
+    }
+
+    async function doRegister(event) {
+      event.preventDefault();
+      var nombre   = document.getElementById('r-user').value.trim();
+      var password = document.getElementById('r-pass').value;
+      setLoading('b-reg', true);
+      clearErrors();
+      try {
+        var res = await fetch('/registro', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nombre: nombre, password: password })
+        });
+        var data = await res.json();
+        if (res.ok) {
+          saveAndRedirect(data);
+        } else if (res.status === 400) {
+          showError('e-reg', 'El nombre de usuario ya existe');
+        } else if (res.status === 401) {
+          showError('e-reg', 'No autorizado. Inténtalo de nuevo.');
+        } else {
+          showError('e-reg', 'Ocurrió un error. Inténtalo de nuevo.');
+        }
+      } catch (_) {
+        showError('e-reg', 'No se pudo conectar con el servidor.');
+      } finally {
+        setLoading('b-reg', false);
+      }
+    }
+  </script>
+</body>
+</html>
