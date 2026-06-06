@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PrediGol — Partidos</title>
+  <style>
+    :root {
+      --green:       #00D45E;
+      --green-dark:  #00993F;
+      --gold:        #FFD700;
+      --bg:          #080D18;
+      --card:        #0D1426;
+      --card-border: rgba(255,255,255,0.07);
+      --text:        #ECF4FF;
+      --muted:       #7A90B8;
+      --error:       #FF4060;
+      --serif:       Georgia, 'Times New Roman', serif;
+      --mono:        'Courier New', Courier, monospace;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; }
+
+    body {
+      min-height: 100vh;
+      background-color: var(--bg);
+      font-family: var(--serif);
+      color: var(--text);
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        repeating-linear-gradient(0deg,  transparent, transparent 99px, rgba(0,212,94,0.03) 99px, rgba(0,212,94,0.03) 100px),
+        repeating-linear-gradient(90deg, transparent, transparent 99px, rgba(0,212,94,0.02) 99px, rgba(0,212,94,0.02) 100px);
+      pointer-events: none; z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 55% 45% at 3%  3%,  rgba(0,212,94,0.07)  0%, transparent 60%),
+        radial-gradient(ellipse 55% 45% at 97% 3%,  rgba(255,215,0,0.05) 0%, transparent 60%);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ===== HEADER ===== */
+    .site-header {
+      position: sticky; top: 0; z-index: 10;
+      background: rgba(8,13,24,0.93);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .header-inner {
+      max-width: 1040px; margin: 0 auto;
+      padding: 0 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 60px; gap: 16px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; flex-shrink: 0; }
+
+    .brand-ball {
+      width: 28px; height: 28px;
+      animation: spinBall 10s linear infinite;
+      filter: drop-shadow(0 0 6px rgba(0,212,94,0.5));
+    }
+
+    @keyframes spinBall { to { transform: rotate(360deg); } }
+
+    .brand-name { font-size: 20px; font-weight: bold; color: var(--text); letter-spacing: -0.5px; }
+    .brand-name em { font-style: normal; color: var(--green); }
+
+    .header-right { display: flex; align-items: center; gap: 14px; }
+
+    .user-label {
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: 1.5px; color: var(--muted); white-space: nowrap;
+    }
+    .user-label strong { color: var(--gold); font-weight: bold; letter-spacing: 2px; }
+
+    .logout-btn {
+      background: none;
+      border: 1px solid rgba(255,64,96,0.3);
+      color: rgba(255,64,96,0.65);
+      font-family: var(--mono); font-size: 9px;
+      letter-spacing: 2px; text-transform: uppercase;
+      padding: 6px 12px; border-radius: 2px; cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+    }
+    .logout-btn:hover {
+      background: rgba(255,64,96,0.1);
+      border-color: rgba(255,64,96,0.55);
+      color: rgba(255,64,96,1);
+    }
+
+    /* ===== PAGE ===== */
+    .page {
+      position: relative; z-index: 1;
+      max-width: 1040px; margin: 0 auto;
+      padding: 40px 20px 64px;
+    }
+
+    /* Page heading */
+    .page-hd {
+      margin-bottom: 32px;
+      animation: fadeDown 0.6s cubic-bezier(0.22,1,0.36,1) both;
+    }
+
+    .page-hd-top {
+      display: flex; align-items: flex-start;
+      justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    }
+
+    .page-hd h2 { font-size: 26px; font-weight: bold; letter-spacing: -0.5px; }
+
+    .sala-sub {
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: 2.5px; text-transform: uppercase;
+      color: var(--gold); margin-top: 5px;
+    }
+
+    .page-nav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+    .nav-btn {
+      font-family: var(--mono); font-size: 9px; font-weight: bold;
+      letter-spacing: 2px; text-transform: uppercase;
+      padding: 8px 14px; border-radius: 2px;
+      text-decoration: none; border: 1px solid; cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+      white-space: nowrap; background: none;
+    }
+
+    .nav-btn.ghost {
+      color: var(--muted); border-color: var(--card-border);
+      background: rgba(255,255,255,0.03);
+    }
+    .nav-btn.ghost:hover {
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.15); color: var(--text);
+    }
+
+    .nav-btn.gold-btn {
+      color: var(--gold);
+      border-color: rgba(255,215,0,0.25);
+      background: rgba(255,215,0,0.07);
+    }
+    .nav-btn.gold-btn:hover {
+      background: rgba(255,215,0,0.14);
+      border-color: rgba(255,215,0,0.45);
+      box-shadow: 0 4px 12px rgba(255,215,0,0.15);
+    }
+
+    /* ===== SHARED SECTION CARD ===== */
+    .s-card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 3px; overflow: hidden;
+      box-shadow: 0 0 0 1px rgba(0,212,94,0.04), 0 12px 32px rgba(0,0,0,0.45);
+    }
+
+    .s-stripe        { height: 3px; }
+    .s-stripe.green  { background: linear-gradient(90deg, transparent, var(--green-dark), var(--green), transparent); }
+    .s-stripe.gold   { background: linear-gradient(90deg, transparent, rgba(255,215,0,0.5), var(--gold), rgba(255,215,0,0.5), transparent); }
+
+    .s-body { padding: 24px 28px 28px; }
+
+    .s-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+
+    .s-icon {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .s-icon.green { background: rgba(0,212,94,0.12); }
+    .s-icon.gold  { background: rgba(255,215,0,0.1); }
+
+    .s-title { font-family: var(--mono); font-size: 10px; font-weight: bold; letter-spacing: 2.5px; text-transform: uppercase; }
+
+    /* ===== FORM FIELDS ===== */
+    .field { margin-bottom: 20px; }
+
+    .field label {
+      display: block; font-family: var(--mono); font-size: 9px;
+      font-weight: bold; letter-spacing: 2.5px; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 10px;
+    }
+
+    .field input {
+      width: 100%; background: transparent; border: none;
+      border-bottom: 2px solid rgba(255,255,255,0.1);
+      padding: 10px 2px; font-family: var(--serif); font-size: 17px;
+      color: var(--text); outline: none; caret-color: var(--green);
+      transition: border-color 0.25s;
+    }
+    .field input::placeholder { color: rgba(236,244,255,0.1); font-style: italic; font-size: 15px; }
+    .field input:focus         { border-bottom-color: var(--green); }
+
+    .field input[type="datetime-local"] {
+      font-family: var(--mono); font-size: 14px; color-scheme: dark;
+    }
+
+    /* ===== MAIN BUTTON ===== */
+    .btn {
+      padding: 13px 20px; border: none;
+      font-family: var(--mono); font-size: 10px; font-weight: bold;
+      letter-spacing: 3px; text-transform: uppercase;
+      cursor: pointer; border-radius: 2px;
+      position: relative; overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn.green-btn {
+      background: linear-gradient(135deg, var(--green), var(--green-dark));
+      color: #021a09;
+    }
+    .btn.green-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,212,94,0.35); }
+    .btn:active          { transform: translateY(0); }
+    .btn:disabled        { opacity: 0.4; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+    .btn.loading         { color: transparent; }
+    .btn.loading::after  {
+      content: ''; position: absolute;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(0,0,0,0.2); border-top-color: rgba(0,0,0,0.7);
+      border-radius: 50%;
+      top: 50%; left: 50%; transform: translate(-50%,-50%);
+      animation: spin 0.55s linear infinite;
+    }
+
+    @keyframes spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
+
+    /* ===== FEEDBACK ===== */
+    .feedback { display: none; margin-top: 14px; padding: 11px 14px; border-radius: 2px; font-family: var(--mono); font-size: 11px; line-height: 1.6; }
+    .feedback.on { display: block; }
+    .feedback.success { background: rgba(0,212,94,0.07); border: 1px solid rgba(0,212,94,0.22); border-left: 3px solid var(--green); color: var(--green); animation: slideIn 0.3s ease both; }
+    .feedback.error   { background: rgba(255,64,96,0.07); border: 1px solid rgba(255,64,96,0.22); border-left: 3px solid var(--error); color: var(--error); animation: shake 0.4s cubic-bezier(0.36,0.07,0.19,0.97) both; }
+
+    @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 40%{transform:translateX(5px)} 60%{transform:translateX(-3px)} 80%{transform:translateX(3px)} }
+    @keyframes slideIn { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:translateY(0)} }
+
+    /* ===== LOADING / EMPTY / ERROR STATES ===== */
+    .loading-state, .error-state, .empty-state { display: none; }
+    .loading-state.on, .error-state.on, .empty-state.on { display: block; animation: slideIn 0.3s ease both; }
+
+    .loading-state { text-align: center; padding: 56px 20px; }
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid rgba(0,212,94,0.15); border-top-color: var(--green);
+      border-radius: 50%; margin: 0 auto 16px;
+      animation: spin 0.7s linear infinite;
+    }
+    .loading-state p { font-family: var(--mono); font-size: 10px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+
+    .error-state { text-align: center; padding: 40px 20px; font-family: var(--mono); font-size: 12px; color: var(--error); }
+
+    .empty-state {
+      text-align: center; padding: 52px 20px;
+      background: var(--card); border: 1px solid var(--card-border); border-radius: 3px;
+    }
+    .empty-state .ei { font-size: 36px; opacity: 0.18; margin-bottom: 14px; }
+    .empty-state p { font-family: var(--mono); font-size: 11px; letter-spacing: 1.5px; color: var(--muted); opacity: 0.55; line-height: 1.8; }
+
+    /* ===== PARTIDOS GRID ===== */
+    .section-hd { margin-bottom: 20px; animation: fadeDown 0.6s cubic-bezier(0.22,1,0.36,1) 0.05s both; }
+
+    .partidos-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+
+    /* ===== PARTIDO CARD ===== */
+    .partido-card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 3px; overflow: hidden;
+      transition: box-shadow 0.2s;
+      animation: fadeUp 0.4s cubic-bezier(0.22,1,0.36,1) both;
+    }
+    .partido-card:hover     { box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+    .partido-card.open      { border-left: 3px solid var(--green); }
+    .partido-card.closed    { border-left: 3px solid rgba(255,255,255,0.12); }
+
+    .partido-card:nth-child(1){animation-delay:0.05s}
+    .partido-card:nth-child(2){animation-delay:0.10s}
+    .partido-card:nth-child(3){animation-delay:0.15s}
+    .partido-card:nth-child(4){animation-delay:0.20s}
+    .partido-card:nth-child(5){animation-delay:0.25s}
+    .partido-card:nth-child(6){animation-delay:0.30s}
+
+    .p-header {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px 0;
+    }
+
+    .status-chip {
+      font-family: var(--mono); font-size: 8px; font-weight: bold;
+      letter-spacing: 2px; text-transform: uppercase;
+      padding: 3px 9px; border-radius: 2px;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .status-chip::before { content: '●'; font-size: 6px; }
+    .status-chip.open   { color: var(--green); background: rgba(0,212,94,0.1); border: 1px solid rgba(0,212,94,0.2); }
+    .status-chip.closed { color: var(--muted); background: rgba(255,255,255,0.04); border: 1px solid var(--card-border); }
+    .status-chip.closed::before { opacity: 0.4; }
+
+    .p-date { font-family: var(--mono); font-size: 9px; letter-spacing: 1px; color: var(--muted); opacity: 0.65; }
+
+    .p-teams {
+      display: flex; align-items: center; justify-content: center;
+      gap: 10px; padding: 18px 18px 14px; text-align: center;
+    }
+
+    .team-name { font-size: 15px; font-weight: bold; color: var(--text); flex: 1; line-height: 1.2; word-break: break-word; }
+    .team-name.local { text-align: right; }
+    .team-name.visit { text-align: left; }
+
+    .vs-label { font-family: var(--mono); font-size: 9px; letter-spacing: 2px; color: var(--muted); opacity: 0.45; flex-shrink: 0; }
+
+    .p-divider { height: 1px; background: var(--card-border); margin: 0 18px; }
+
+    /* Open partido: prediction form */
+    .p-body { padding: 14px 18px 18px; }
+
+    .pred-label { font-family: var(--mono); font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+
+    .pred-row { display: flex; align-items: center; gap: 8px; }
+
+    .score-input {
+      width: 52px; background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.12); border-radius: 2px;
+      padding: 8px 4px; font-family: var(--mono); font-size: 22px;
+      color: var(--text); text-align: center; outline: none;
+      caret-color: var(--green); transition: border-color 0.2s;
+      -moz-appearance: textfield;
+    }
+    .score-input::-webkit-inner-spin-button,
+    .score-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+    .score-input:focus { border-color: rgba(0,212,94,0.5); }
+
+    .pred-sep { font-family: var(--mono); font-size: 18px; color: var(--muted); opacity: 0.4; flex-shrink: 0; }
+
+    .pred-btn {
+      flex: 1; padding: 10px 6px;
+      background: linear-gradient(135deg, var(--green), var(--green-dark));
+      border: none; font-family: var(--mono); font-size: 9px; font-weight: bold;
+      letter-spacing: 2px; text-transform: uppercase; color: #021a09;
+      cursor: pointer; border-radius: 2px;
+      position: relative; overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .pred-btn:hover    { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,212,94,0.3); }
+    .pred-btn:active   { transform: translateY(0); }
+    .pred-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+    .pred-btn.loading  { color: transparent; }
+    .pred-btn.loading::after {
+      content: ''; position: absolute;
+      width: 12px; height: 12px;
+      border: 2px solid rgba(0,0,0,0.2); border-top-color: #021a09;
+      border-radius: 50%; top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      animation: spin 0.55s linear infinite;
+    }
+
+    .pred-feedback { display: none; margin-top: 10px; padding: 8px 12px; border-radius: 2px; font-family: var(--mono); font-size: 10px; line-height: 1.5; }
+    .pred-feedback.ok  { display: block; background: rgba(0,212,94,0.07); border: 1px solid rgba(0,212,94,0.2); border-left: 2px solid var(--green); color: var(--green); animation: slideIn 0.3s ease both; }
+    .pred-feedback.err { display: block; background: rgba(255,64,96,0.07); border: 1px solid rgba(255,64,96,0.2); border-left: 2px solid var(--error); color: var(--error); animation: shake 0.4s cubic-bezier(0.36,0.07,0.19,0.97) both; }
+
+    .pred-success {
+      font-family: var(--mono); font-size: 11px; letter-spacing: 1px;
+      color: var(--green); display: flex; align-items: center; gap: 8px; padding: 4px 0;
+    }
+    .pred-success::before { content: '✓'; font-size: 14px; font-weight: bold; }
+
+    /* Closed partido: result */
+    .match-result { text-align: center; padding: 18px 18px 4px; }
+    .result-label { display: block; font-family: var(--mono); font-size: 8px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); opacity: 0.55; margin-bottom: 8px; }
+    .result-score { font-family: var(--mono); font-size: 38px; font-weight: bold; color: var(--gold); letter-spacing: 8px; text-shadow: 0 0 20px rgba(255,215,0,0.28); }
+    .closed-msg { text-align: center; font-family: var(--mono); font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); opacity: 0.38; padding: 8px 18px 18px; }
+
+    /* ===== CREATOR SECTION ===== */
+    .creator-section { margin-top: 8px; animation: fadeUp 0.6s cubic-bezier(0.22,1,0.36,1) 0.15s both; }
+
+    .creator-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 680px) {
+      .creator-grid   { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 600px) {
+      .header-inner   { padding: 0 16px; }
+      .user-label     { display: none; }
+      .page           { padding: 28px 14px 56px; }
+      .page-hd-top    { flex-direction: column; }
+      .page-nav       { width: 100%; }
+      .nav-btn        { flex: 1; text-align: center; }
+      .partidos-grid  { grid-template-columns: 1fr; }
+    }
+
+    /* ===== ENTRY ANIMATIONS ===== */
+    @keyframes fadeDown { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeUp   { from{opacity:0;transform:translateY(16px)}  to{opacity:1;transform:translateY(0)} }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="/" class="brand" aria-label="PrediGol — inicio">
+        <svg class="brand-ball" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <radialGradient id="bG" cx="38%" cy="35%" r="65%">
+              <stop offset="0%"   stop-color="#12291a"/>
+              <stop offset="100%" stop-color="#060d0a"/>
+            </radialGradient>
+          </defs>
+          <circle cx="50" cy="50" r="47" fill="url(#bG)" stroke="#00D45E" stroke-width="3"/>
+          <polygon points="50,31 64,41 59,57 41,57 36,41" fill="#00D45E" stroke="#031409" stroke-width="2"/>
+          <path d="M50,31 C50,22 50,12 50,4"  stroke="#00D45E" stroke-width="1.5" fill="none" opacity="0.5"/>
+          <path d="M64,41 C72,36 80,30 88,24" stroke="#00D45E" stroke-width="1.5" fill="none" opacity="0.5"/>
+          <path d="M59,57 C65,66 72,75 78,84" stroke="#00D45E" stroke-width="1.5" fill="none" opacity="0.5"/>
+          <path d="M41,57 C35,66 28,75 22,84" stroke="#00D45E" stroke-width="1.5" fill="none" opacity="0.5"/>
+          <path d="M36,41 C28,36 20,30 12,24" stroke="#00D45E" stroke-width="1.5" fill="none" opacity="0.5"/>
+        </svg>
+        <span class="brand-name">Predi<em>Gol</em></span>
+      </a>
+      <div class="header-right">
+        <span class="user-label">Hola, <strong id="username">...</strong></span>
+        <button class="logout-btn" onclick="logout()">Salir</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="page">
+
+    <!-- Heading + nav -->
+    <div class="page-hd">
+      <div class="page-hd-top">
+        <div>
+          <h2>Partidos</h2>
+          <p class="sala-sub" id="sala-name-display">&hellip;</p>
+        </div>
+        <nav class="page-nav">
+          <a class="nav-btn ghost" href="/static/salas.html">&larr; Volver a salas</a>
+          <a class="nav-btn gold-btn" id="ranking-link" href="#">Ver ranking &rarr;</a>
+        </nav>
+      </div>
+    </div>
+
+    <!-- SECTION 1: Partidos list -->
+    <section style="margin-bottom:28px">
+      <div class="section-hd">
+        <div class="s-heading" style="margin-bottom:0">
+          <div class="s-icon green">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <rect x="1" y="2" width="12" height="11" rx="1" stroke="#00D45E" stroke-width="1.5"/>
+              <path d="M1 6h12M4 1v2M10 1v2" stroke="#00D45E" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="s-title">Partidos</span>
+        </div>
+      </div>
+
+      <div class="loading-state on" id="loading-state">
+        <div class="spinner"></div>
+        <p>Cargando partidos&hellip;</p>
+      </div>
+
+      <div class="error-state" id="error-state"></div>
+
+      <div class="empty-state" id="empty-state">
+        <div class="ei">📋</div>
+        <p>Aún no hay partidos en esta sala.<br>El creador puede agregar partidos abajo.</p>
+      </div>
+
+      <div class="partidos-grid" id="partidos-grid"></div>
+    </section>
+
+    <!-- SECTION 2: Crear partido (all users see it; 403 handled gracefully) -->
+    <section class="creator-section">
+      <div class="s-card">
+        <div class="s-stripe gold"></div>
+        <div class="s-body">
+          <div class="s-heading">
+            <div class="s-icon gold">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path d="M7 1v12M1 7h12" stroke="#FFD700" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <span class="s-title" style="color:var(--gold)">Crear Partido</span>
+            <span style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--muted);margin-left:auto">Solo creador</span>
+          </div>
+
+          <form id="createPartidoForm" onsubmit="crearPartido(event)" novalidate>
+            <div class="creator-grid">
+              <div class="field">
+                <label for="f-local">Equipo local</label>
+                <input id="f-local" type="text" placeholder="Ej: Francia" maxlength="50" required/>
+              </div>
+              <div class="field">
+                <label for="f-visit">Equipo visitante</label>
+                <input id="f-visit" type="text" placeholder="Ej: Argentina" maxlength="50" required/>
+              </div>
+              <div class="field">
+                <label for="f-fecha">Fecha y hora</label>
+                <input id="f-fecha" type="datetime-local" required/>
+              </div>
+            </div>
+            <button class="btn green-btn" type="submit" id="b-crear" style="max-width:240px">
+              Crear Partido
+            </button>
+            <div class="feedback" id="fb-crear" role="alert" aria-live="assertive"></div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // ===== AUTH + URL PARAMS =====
+    var token = localStorage.getItem('access_token');
+    if (!token) { location.href = '/'; }
+
+    var params     = new URLSearchParams(location.search);
+    var salaId     = params.get('sala_id');
+    var salaNombre = params.get('sala_nombre') ? decodeURIComponent(params.get('sala_nombre')) : 'Sala';
+
+    if (!salaId) { location.href = '/static/salas.html'; }
+
+    function decodeUsername(jwt) {
+      try {
+        return JSON.parse(atob(jwt.split('.')[1])).sub || 'Usuario';
+      } catch (_) { return 'Usuario'; }
+    }
+
+    document.getElementById('username').textContent          = decodeUsername(token);
+    document.getElementById('sala-name-display').textContent = salaNombre.toUpperCase();
+    document.getElementById('ranking-link').href =
+      '/static/ranking.html?sala_id=' + salaId +
+      '&sala_nombre=' + encodeURIComponent(salaNombre);
+
+    // ===== LOGOUT =====
+    function logout() {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('salas_usuario');
+      location.href = '/';
+    }
+
+    // ===== LOAD PARTIDOS =====
+    async function loadPartidos() {
+      setState('loading');
+      try {
+        var res = await fetch('/salas/' + salaId + '/partidos');
+        if (res.status === 404) { setState('error', 'Sala no encontrada.'); return; }
+        if (!res.ok)            { setState('error', 'Error al cargar los partidos.'); return; }
+        renderPartidos(await res.json());
+      } catch (_) {
+        setState('error', 'No se pudo conectar con el servidor.');
+      }
+    }
+
+    function setState(state, msg) {
+      document.getElementById('loading-state').classList.toggle('on', state === 'loading');
+      document.getElementById('error-state').classList.toggle('on',   state === 'error');
+      document.getElementById('empty-state').classList.toggle('on',   state === 'empty');
+      if (state !== 'loaded') { document.getElementById('partidos-grid').innerHTML = ''; }
+      if (state === 'error' && msg) { document.getElementById('error-state').textContent = msg; }
+    }
+
+    function renderPartidos(partidos) {
+      if (partidos.length === 0) { setState('empty'); return; }
+      setState('loaded');
+      document.getElementById('partidos-grid').innerHTML = partidos.map(buildCard).join('');
+    }
+
+    // ===== BUILD PARTIDO CARD =====
+    function buildCard(p) {
+      var isOpen  = !p.finalizado;
+      var dateStr = formatFecha(p.fecha_partido);
+      var status  = isOpen
+        ? '<span class="status-chip open">Abierto</span>'
+        : '<span class="status-chip closed">Finalizado</span>';
+
+      var body;
+      if (!isOpen) {
+        var gl = p.goles_local      != null ? p.goles_local      : '?';
+        var gv = p.goles_visitante  != null ? p.goles_visitante  : '?';
+        body = '<div class="match-result">' +
+               '  <span class="result-label">Resultado final</span>' +
+               '  <span class="result-score">' + gl + ' &mdash; ' + gv + '</span>' +
+               '</div>' +
+               '<div class="closed-msg">&oslash; Partido cerrado</div>';
+      } else {
+        body = '<div class="p-body" id="pf-' + p.id + '">' +
+               '  <div class="pred-label">Tu predicci&oacute;n</div>' +
+               '  <div class="pred-row">' +
+               '    <input class="score-input" type="number" id="gl-' + p.id + '" min="0" max="99" value="0"/>' +
+               '    <span class="pred-sep">&mdash;</span>' +
+               '    <input class="score-input" type="number" id="gv-' + p.id + '" min="0" max="99" value="0"/>' +
+               '    <button class="pred-btn" id="pb-' + p.id + '" onclick="predecir(' + p.id + ')">Predecir</button>' +
+               '  </div>' +
+               '  <div class="pred-feedback" id="fb-' + p.id + '"></div>' +
+               '</div>';
+      }
+
+      return '<div class="partido-card ' + (isOpen ? 'open' : 'closed') + '">' +
+             '  <div class="p-header">' + status + '<span class="p-date">' + esc(dateStr) + '</span></div>' +
+             '  <div class="p-teams">' +
+             '    <span class="team-name local">' + esc(p.equipo_local) + '</span>' +
+             '    <span class="vs-label">vs</span>' +
+             '    <span class="team-name visit">' + esc(p.equipo_visitante) + '</span>' +
+             '  </div>' +
+             '  <div class="p-divider"></div>' +
+             '  ' + body +
+             '</div>';
+    }
+
+    // ===== PREDICT =====
+    async function predecir(partidoId) {
+      var golesLocal = parseInt(document.getElementById('gl-' + partidoId).value, 10);
+      var golesVisit = parseInt(document.getElementById('gv-' + partidoId).value, 10);
+
+      if (isNaN(golesLocal) || isNaN(golesVisit) || golesLocal < 0 || golesVisit < 0) {
+        setPredFb(partidoId, 'err', 'Ingresa valores v&aacute;lidos.');
+        return;
+      }
+
+      var btn = document.getElementById('pb-' + partidoId);
+      if (btn) { btn.disabled = true; btn.classList.add('loading'); }
+
+      try {
+        var res = await fetch(
+          '/partidos/' + partidoId + '/predicciones?token=' + encodeURIComponent(token),
+          {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ goles_local: golesLocal, goles_visitante: golesVisit })
+          }
+        );
+        var data = await res.json();
+
+        if (res.ok) {
+          var form = document.getElementById('pf-' + partidoId);
+          if (form) {
+            form.innerHTML = '<div class="pred-success">' +
+              esc(data.mensaje || 'Predicción registrada') + '</div>';
+          }
+          return;
+        }
+
+        if (res.status === 400) {
+          var d = (data.detail || '').toLowerCase();
+          if (d.includes('ya predijiste') || d.includes('ya predijo')) {
+            setPredFb(partidoId, 'err', 'Ya registraste una predicci&oacute;n para este partido.');
+          } else if (d.includes('finalizado')) {
+            setPredFb(partidoId, 'err', 'El partido ya finaliz&oacute;.');
+          } else {
+            setPredFb(partidoId, 'err', esc(data.detail || 'No se pudo registrar.'));
+          }
+        } else if (res.status === 401) {
+          setPredFb(partidoId, 'err', 'Sesi&oacute;n expirada.');
+          setTimeout(logout, 1800);
+        } else {
+          setPredFb(partidoId, 'err', 'Error al enviar la predicci&oacute;n.');
+        }
+      } catch (_) {
+        setPredFb(partidoId, 'err', 'No se pudo conectar con el servidor.');
+      } finally {
+        var b = document.getElementById('pb-' + partidoId);
+        if (b) { b.disabled = false; b.classList.remove('loading'); }
+      }
+    }
+
+    function setPredFb(id, type, html) {
+      var el = document.getElementById('fb-' + id);
+      if (!el) return;
+      el.innerHTML = html;
+      el.className = 'pred-feedback';
+      void el.offsetWidth;
+      el.className = 'pred-feedback ' + type;
+    }
+
+    // ===== CREATE PARTIDO =====
+    async function crearPartido(event) {
+      event.preventDefault();
+      var local = document.getElementById('f-local').value.trim();
+      var visit = document.getElementById('f-visit').value.trim();
+      var fecha = document.getElementById('f-fecha').value;
+      if (!local || !visit || !fecha) return;
+
+      // datetime-local gives "YYYY-MM-DDTHH:MM"; API needs seconds
+      var fechaISO = fecha.length === 16 ? fecha + ':00' : fecha;
+
+      setLoading('b-crear', true);
+      try {
+        var res = await fetch(
+          '/salas/' + salaId + '/partidos?token=' + encodeURIComponent(token),
+          {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+              equipo_local:     local,
+              equipo_visitante: visit,
+              fecha_partido:    fechaISO
+            })
+          }
+        );
+        var data = await res.json();
+
+        if (res.ok) {
+          document.getElementById('f-local').value = '';
+          document.getElementById('f-visit').value = '';
+          document.getElementById('f-fecha').value = '';
+          showFb('fb-crear', 'success', 'Partido creado correctamente.');
+          await loadPartidos();
+        } else if (res.status === 403) {
+          showFb('fb-crear', 'error', 'Solo el creador de la sala puede agregar partidos.');
+        } else if (res.status === 401) {
+          showFb('fb-crear', 'error', 'Sesi&oacute;n expirada. Redirigiendo&hellip;');
+          setTimeout(logout, 1800);
+        } else {
+          showFb('fb-crear', 'error', esc(data.detail || 'No se pudo crear el partido.'));
+        }
+      } catch (_) {
+        showFb('fb-crear', 'error', 'No se pudo conectar con el servidor.');
+      } finally {
+        setLoading('b-crear', false);
+      }
+    }
+
+    // ===== HELPERS =====
+    function setLoading(id, state) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.disabled = state;
+      el.classList.toggle('loading', state);
+    }
+
+    function showFb(id, type, html) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.innerHTML = html;
+      el.className = 'feedback';
+      void el.offsetWidth;
+      el.className = 'feedback ' + type + ' on';
+    }
+
+    function formatFecha(str) {
+      try {
+        var d = new Date(str);
+        var date = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+        var time = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        return date + ' · ' + time;
+      } catch (_) { return str || ''; }
+    }
+
+    function esc(s) {
+      return String(s || '')
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    // ===== BOOT =====
+    loadPartidos();
+  </script>
+</body>
+</html>
